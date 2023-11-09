@@ -1,0 +1,41 @@
+package flux
+
+import (
+	"github.com/wxy365/basal/iterator"
+)
+
+func FromMap[K comparable, V any](m map[K]V) Flux[iterator.MapEntry[K, V]] {
+	pipe := make(chan iterator.MapEntry[K, V])
+	go func() {
+		for k, v := range m {
+			entry := iterator.NewMapEntry(k, v)
+			pipe <- entry
+		}
+		close(pipe)
+	}()
+	return &fluxImpl[iterator.MapEntry[K, V]]{
+		data: pipe,
+	}
+}
+
+func FromSlice[T any](s []T) Flux[T] {
+	pipe := make(chan T)
+	go func() {
+		for _, t := range s {
+			pipe <- t
+		}
+		close(pipe)
+	}()
+	return &fluxImpl[T]{pipe}
+}
+
+func FromRange[T int](start, end T) Flux[T] {
+	pipe := make(chan T)
+	go func() {
+		for i := start; i < end; i++ {
+			pipe <- i
+		}
+		close(pipe)
+	}()
+	return &fluxImpl[T]{pipe}
+}
