@@ -2,21 +2,6 @@ package iterator
 
 import "github.com/wxy365/basal/fn"
 
-func NewMapIterator[K comparable, V any](tgt map[K]V) Iterator[MapEntry[K, V]] {
-	pipe := make(chan MapEntry[K, V])
-	go func() {
-		for k, v := range tgt {
-			pipe <- &defaultMapEntry[K, V]{key: k, value: v}
-		}
-		close(pipe)
-	}()
-	return &mapIterator[K, V]{
-		tgt:  tgt,
-		pipe: pipe,
-		next: <-pipe,
-	}
-}
-
 type mapIterator[K comparable, V any] struct {
 	tgt  map[K]V
 	pipe chan MapEntry[K, V]

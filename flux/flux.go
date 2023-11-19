@@ -11,8 +11,8 @@ type Flux[T any] interface {
 	Sorted(comparator fn.Comparator[T]) Flux[T]
 	Distinct(comparer fn.Comparer[T]) Flux[T]
 	OnEmit(consumer fn.Consumer[T]) Flux[T]
-	Limit(size int64) Flux[T]
-	Skip(n int64) Flux[T]
+	Limit(size uint) Flux[T]
+	Skip(n uint) Flux[T]
 	OnClose(func()) Flux[T]
 	ForEach(consumer fn.Consumer[T])
 	ToSlice() []T
@@ -49,111 +49,6 @@ func Collect[T, A, R any](f Flux[T], collector Collector[T, A, R]) R {
 	return collector.Finisher()(container)
 }
 
-type fluxImpl[T any] struct {
-	data chan T
-}
-
-func (f *fluxImpl[T]) Filter(predicate fn.Predicate[T]) Flux[T] {
-	return &filteredFlux[T]{
-		origin: f,
-		filter: predicate,
-	}
-}
-
-func (f *fluxImpl[T]) Sorted(comparator fn.Comparator[T]) Flux[T] {
-	return &sortedFlux[T]{
-		origin:     f,
-		comparator: comparator,
-	}
-}
-
-func (f *fluxImpl[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
-	return &distinctFlux[T]{
-		origin:   f,
-		comparer: comparer,
-	}
-}
-
-func (f *fluxImpl[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
-		origin:   f,
-		consumer: consumer,
-	}
-}
-
-func (f *fluxImpl[T]) Limit(size int64) Flux[T] {
-	return &limitedFlux[T]{
-		origin:  f,
-		maxSize: size,
-	}
-}
-
-func (f *fluxImpl[T]) Skip(n int64) Flux[T] {
-	return &skippedFlux[T]{
-		origin: f,
-		skip:   n,
-	}
-}
-
-func (f *fluxImpl[T]) OnClose(hook func()) Flux[T] {
-	return &closeHookFlux[T]{
-		origin:    f,
-		closeHook: hook,
-	}
-}
-
-func (f *fluxImpl[T]) ForEach(consumer fn.Consumer[T]) {
-	itr := f.Iterator()
-	for itr.HasNext() {
-		next := itr.Next()
-		consumer(next)
-	}
-}
-
-func (f *fluxImpl[T]) ToSlice() []T {
-	return toSlice[T](f)
-}
-
-func (f *fluxImpl[T]) Min(comparator fn.Comparator[T]) opt.Opt[T] {
-	return min[T](f, comparator)
-}
-
-func (f *fluxImpl[T]) Max(comparator fn.Comparator[T]) opt.Opt[T] {
-	return max[T](f, comparator)
-}
-
-func (f *fluxImpl[T]) Count() int64 {
-	return count[T](f)
-}
-
-func (f *fluxImpl[T]) AnyMatch(predicate fn.Predicate[T]) bool {
-	return anyMatch[T](f, predicate)
-}
-
-func (f *fluxImpl[T]) AllMatch(predicate fn.Predicate[T]) bool {
-	return allMatch[T](f, predicate)
-}
-
-func (f *fluxImpl[T]) NoneMatch(predicate fn.Predicate[T]) bool {
-	return noneMatch[T](f, predicate)
-}
-
-func (f *fluxImpl[T]) Emit() opt.Opt[T] {
-	d, ok := <-f.data
-	if ok {
-		return opt.New(d)
-	}
-	return opt.Empty[T]()
-}
-
-func (f *fluxImpl[T]) Iterator() iterator.Iterator[T] {
-	return newFluxIterator(f.data)
-}
-
-func (f *fluxImpl[T]) Close() {
-	close(f.data)
-}
-
 type filteredFlux[T any] struct {
 	origin Flux[T]
 	filter fn.Predicate[T]
@@ -181,20 +76,20 @@ func (f *filteredFlux[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 }
 
 func (f *filteredFlux[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *filteredFlux[T]) Limit(size int64) Flux[T] {
+func (f *filteredFlux[T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *filteredFlux[T]) Skip(n int64) Flux[T] {
+func (f *filteredFlux[T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
@@ -269,7 +164,7 @@ func (f *filteredFlux[T]) Iterator() iterator.Iterator[T] {
 		}
 		close(pipe)
 	}()
-	return newFluxIterator(pipe)
+	return iterator.Filter(f.origin.Iterator(), f.filter)
 }
 
 func (f *filteredFlux[T]) Close() {
@@ -279,7 +174,6 @@ func (f *filteredFlux[T]) Close() {
 type sortedFlux[T any] struct {
 	origin     Flux[T]
 	comparator fn.Comparator[T]
-	iterator   iterator.Iterator[T]
 }
 
 func (f *sortedFlux[T]) Filter(predicate fn.Predicate[T]) Flux[T] {
@@ -304,20 +198,20 @@ func (f *sortedFlux[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 }
 
 func (f *sortedFlux[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *sortedFlux[T]) Limit(size int64) Flux[T] {
+func (f *sortedFlux[T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *sortedFlux[T]) Skip(n int64) Flux[T] {
+func (f *sortedFlux[T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
@@ -376,35 +270,7 @@ func (f *sortedFlux[T]) Emit() opt.Opt[T] {
 }
 
 func (f *sortedFlux[T]) Iterator() iterator.Iterator[T] {
-	if f.iterator != nil {
-		return f.iterator
-	}
-	var sorted []T
-	itr := f.origin.Iterator()
-	for itr.HasNext() {
-		if len(sorted) == 0 {
-			sorted = append(sorted, itr.Next())
-		} else {
-			n := itr.Next()
-			for i, t := range sorted {
-				if f.comparator(n, t) >= 0 {
-					if i == len(sorted)-1 {
-						sorted = append(sorted, n)
-					} else if f.comparator(n, sorted[i+1]) < 0 {
-						sorted = append(sorted[:i+1], append([]T{n}, sorted[i+1:]...)...)
-					}
-				}
-			}
-		}
-	}
-	pipe := make(chan T)
-	go func() {
-		for _, t := range sorted {
-			pipe <- t
-		}
-		close(pipe)
-	}()
-	return newFluxIterator(pipe)
+	return iterator.Sort(f.origin.Iterator(), f.comparator)
 }
 
 func (f *sortedFlux[T]) Close() {
@@ -439,20 +305,20 @@ func (f *distinctFlux[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 }
 
 func (f *distinctFlux[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *distinctFlux[T]) Limit(size int64) Flux[T] {
+func (f *distinctFlux[T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *distinctFlux[T]) Skip(n int64) Flux[T] {
+func (f *distinctFlux[T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
@@ -510,122 +376,103 @@ func (f *distinctFlux[T]) Emit() opt.Opt[T] {
 }
 
 func (f *distinctFlux[T]) Iterator() iterator.Iterator[T] {
-	pipe := make(chan T)
-	go func() {
-		itr := f.origin.Iterator()
-		for itr.HasNext() {
-			next := itr.Next()
-			hit := false
-			for _, t := range f.emitted {
-				if f.comparer(t, next) {
-					hit = true
-					break
-				}
-			}
-			if !hit {
-				f.emitted = append(f.emitted, next)
-				pipe <- next
-			}
-		}
-		close(pipe)
-	}()
-	return newFluxIterator(pipe)
+	return iterator.Distinct(f.origin.Iterator(), f.comparer)
 }
 
 func (f *distinctFlux[T]) Close() {
 	f.origin.Close()
 }
 
-type consumerAwareFlux[T any] struct {
+type consumedFlux[T any] struct {
 	origin   Flux[T]
 	consumer fn.Consumer[T]
 }
 
-func (f *consumerAwareFlux[T]) Filter(predicate fn.Predicate[T]) Flux[T] {
+func (f *consumedFlux[T]) Filter(predicate fn.Predicate[T]) Flux[T] {
 	return &filteredFlux[T]{
 		origin: f,
 		filter: predicate,
 	}
 }
 
-func (f *consumerAwareFlux[T]) Sorted(comparator fn.Comparator[T]) Flux[T] {
+func (f *consumedFlux[T]) Sorted(comparator fn.Comparator[T]) Flux[T] {
 	return &sortedFlux[T]{
 		origin:     f,
 		comparator: comparator,
 	}
 }
 
-func (f *consumerAwareFlux[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
+func (f *consumedFlux[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 	return &distinctFlux[T]{
 		origin:   f,
 		comparer: comparer,
 	}
 }
 
-func (f *consumerAwareFlux[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+func (f *consumedFlux[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *consumerAwareFlux[T]) Limit(size int64) Flux[T] {
+func (f *consumedFlux[T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *consumerAwareFlux[T]) Skip(n int64) Flux[T] {
+func (f *consumedFlux[T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
 	}
 }
 
-func (f *consumerAwareFlux[T]) OnClose(hook func()) Flux[T] {
+func (f *consumedFlux[T]) OnClose(hook func()) Flux[T] {
 	return &closeHookFlux[T]{
 		origin:    f,
 		closeHook: hook,
 	}
 }
 
-func (f *consumerAwareFlux[T]) ForEach(consumer fn.Consumer[T]) {
+func (f *consumedFlux[T]) ForEach(consumer fn.Consumer[T]) {
 	itr := f.Iterator()
 	for itr.HasNext() {
 		consumer(itr.Next())
 	}
 }
 
-func (f *consumerAwareFlux[T]) ToSlice() []T {
+func (f *consumedFlux[T]) ToSlice() []T {
 	return toSlice[T](f)
 }
 
-func (f *consumerAwareFlux[T]) Min(comparator fn.Comparator[T]) opt.Opt[T] {
+func (f *consumedFlux[T]) Min(comparator fn.Comparator[T]) opt.Opt[T] {
 	return min[T](f, comparator)
 }
 
-func (f *consumerAwareFlux[T]) Max(comparator fn.Comparator[T]) opt.Opt[T] {
+func (f *consumedFlux[T]) Max(comparator fn.Comparator[T]) opt.Opt[T] {
 	return max[T](f, comparator)
 }
 
-func (f *consumerAwareFlux[T]) Count() int64 {
+func (f *consumedFlux[T]) Count() int64 {
 	return count[T](f)
 }
 
-func (f *consumerAwareFlux[T]) AnyMatch(predicate fn.Predicate[T]) bool {
+func (f *consumedFlux[T]) AnyMatch(predicate fn.Predicate[T]) bool {
 	return anyMatch[T](f, predicate)
 }
 
-func (f *consumerAwareFlux[T]) AllMatch(predicate fn.Predicate[T]) bool {
+func (f *consumedFlux[T]) AllMatch(predicate fn.Predicate[T]) bool {
 	return allMatch[T](f, predicate)
 }
 
-func (f *consumerAwareFlux[T]) NoneMatch(predicate fn.Predicate[T]) bool {
+func (f *consumedFlux[T]) NoneMatch(predicate fn.Predicate[T]) bool {
 	return noneMatch[T](f, predicate)
 }
 
-func (f *consumerAwareFlux[T]) Emit() opt.Opt[T] {
+func (f *consumedFlux[T]) Emit() opt.Opt[T] {
 	next := f.origin.Emit()
 	if next.IsPresent() {
 		f.consumer(next.Get())
@@ -634,27 +481,18 @@ func (f *consumerAwareFlux[T]) Emit() opt.Opt[T] {
 	return opt.Empty[T]()
 }
 
-func (f *consumerAwareFlux[T]) Iterator() iterator.Iterator[T] {
-	itr := f.Iterator()
-	pipe := make(chan T)
-	go func() {
-		for itr.HasNext() {
-			next := itr.Next()
-			pipe <- next
-			f.consumer(next)
-		}
-	}()
-	return newFluxIterator(pipe)
+func (f *consumedFlux[T]) Iterator() iterator.Iterator[T] {
+	return iterator.Consume(f.origin.Iterator(), f.consumer)
 }
 
-func (f *consumerAwareFlux[T]) Close() {
+func (f *consumedFlux[T]) Close() {
 	f.origin.Close()
 }
 
 type limitedFlux[T any] struct {
 	origin  Flux[T]
-	maxSize int64
-	count   int64
+	maxSize uint
+	count   uint
 }
 
 func (f *limitedFlux[T]) Filter(predicate fn.Predicate[T]) Flux[T] {
@@ -679,20 +517,20 @@ func (f *limitedFlux[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 }
 
 func (f *limitedFlux[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *limitedFlux[T]) Limit(size int64) Flux[T] {
+func (f *limitedFlux[T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *limitedFlux[T]) Skip(n int64) Flux[T] {
+func (f *limitedFlux[T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
@@ -752,18 +590,7 @@ func (f *limitedFlux[T]) Emit() opt.Opt[T] {
 
 func (f *limitedFlux[T]) Iterator() iterator.Iterator[T] {
 	itr := f.origin.Iterator()
-	pipe := make(chan T)
-	go func() {
-		for itr.HasNext() {
-			next := itr.Next()
-			if f.count < f.maxSize {
-				f.count++
-				pipe <- next
-			}
-		}
-		close(pipe)
-	}()
-	return newFluxIterator(pipe)
+	return iterator.Limit(itr, f.maxSize)
 }
 
 func (f *limitedFlux[T]) Close() {
@@ -772,8 +599,8 @@ func (f *limitedFlux[T]) Close() {
 
 type skippedFlux[T any] struct {
 	origin Flux[T]
-	skip   int64
-	count  int64
+	skip   uint
+	count  uint
 }
 
 func (f *skippedFlux[T]) Filter(predicate fn.Predicate[T]) Flux[T] {
@@ -798,20 +625,20 @@ func (f *skippedFlux[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 }
 
 func (f *skippedFlux[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *skippedFlux[T]) Limit(size int64) Flux[T] {
+func (f *skippedFlux[T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *skippedFlux[T]) Skip(n int64) Flux[T] {
+func (f *skippedFlux[T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
@@ -869,20 +696,7 @@ func (f *skippedFlux[T]) Emit() opt.Opt[T] {
 }
 
 func (f *skippedFlux[T]) Iterator() iterator.Iterator[T] {
-	itr := f.origin.Iterator()
-	pipe := make(chan T)
-	go func() {
-		for itr.HasNext() {
-			next := itr.Next()
-			f.count++
-			if f.count <= f.skip {
-				continue
-			}
-			pipe <- next
-		}
-		close(pipe)
-	}()
-	return newFluxIterator(pipe)
+	return iterator.Skip[T](f.origin.Iterator(), f.skip)
 }
 
 func (f *skippedFlux[T]) Close() {
@@ -916,20 +730,20 @@ func (f *closeHookFlux[T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 }
 
 func (f *closeHookFlux[T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *closeHookFlux[T]) Limit(size int64) Flux[T] {
+func (f *closeHookFlux[T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *closeHookFlux[T]) Skip(n int64) Flux[T] {
+func (f *closeHookFlux[T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
@@ -1018,20 +832,20 @@ func (f *mappedFlux[R, T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 }
 
 func (f *mappedFlux[R, T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *mappedFlux[R, T]) Limit(size int64) Flux[T] {
+func (f *mappedFlux[R, T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *mappedFlux[R, T]) Skip(n int64) Flux[T] {
+func (f *mappedFlux[R, T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
@@ -1091,16 +905,7 @@ func (f *mappedFlux[R, T]) Emit() opt.Opt[T] {
 
 func (f *mappedFlux[R, T]) Iterator() iterator.Iterator[T] {
 	itr := f.origin.Iterator()
-	pipe := make(chan T)
-	go func() {
-		for itr.HasNext() {
-			r := itr.Next()
-			t := f.mapper(r)
-			pipe <- t
-		}
-		close(pipe)
-	}()
-	return newFluxIterator(pipe)
+	return iterator.Map(itr, f.mapper)
 }
 
 func (f *mappedFlux[R, T]) Close() {
@@ -1108,8 +913,9 @@ func (f *mappedFlux[R, T]) Close() {
 }
 
 type flatMappedFlux[R, T any] struct {
-	origin Flux[R]
-	mapper fn.Function[R, Flux[T]]
+	origin    Flux[R]
+	mapper    fn.Function[R, Flux[T]]
+	mappedEle Flux[T]
 }
 
 func (f *flatMappedFlux[R, T]) Filter(predicate fn.Predicate[T]) Flux[T] {
@@ -1134,20 +940,20 @@ func (f *flatMappedFlux[R, T]) Distinct(comparer fn.Comparer[T]) Flux[T] {
 }
 
 func (f *flatMappedFlux[R, T]) OnEmit(consumer fn.Consumer[T]) Flux[T] {
-	return &consumerAwareFlux[T]{
+	return &consumedFlux[T]{
 		origin:   f,
 		consumer: consumer,
 	}
 }
 
-func (f *flatMappedFlux[R, T]) Limit(size int64) Flux[T] {
+func (f *flatMappedFlux[R, T]) Limit(size uint) Flux[T] {
 	return &limitedFlux[T]{
 		origin:  f,
 		maxSize: size,
 	}
 }
 
-func (f *flatMappedFlux[R, T]) Skip(n int64) Flux[T] {
+func (f *flatMappedFlux[R, T]) Skip(n uint) Flux[T] {
 	return &skippedFlux[T]{
 		origin: f,
 		skip:   n,
@@ -1197,29 +1003,29 @@ func (f *flatMappedFlux[R, T]) NoneMatch(predicate fn.Predicate[T]) bool {
 }
 
 func (f *flatMappedFlux[R, T]) Emit() opt.Opt[T] {
-	r := f.origin.Emit()
-	if !r.IsPresent() {
-		return opt.Empty[T]()
+	if f.mappedEle == nil {
+		r := f.origin.Emit()
+		if r.IsPresent() {
+			f.mappedEle = f.mapper(r.Get())
+		} else {
+			return opt.Empty[T]()
+		}
+	} else {
+		t := f.mappedEle.Emit()
+		if t.IsPresent() {
+			return t
+		} else {
+			f.mappedEle = nil
+		}
 	}
-	return f.mapper(r.Get()).Emit()
+	return f.Emit()
 }
 
 func (f *flatMappedFlux[R, T]) Iterator() iterator.Iterator[T] {
-	itr := f.origin.Iterator()
-	pipe := make(chan T)
-	go func() {
-		for itr.HasNext() {
-			next := itr.Next()
-			nf := f.mapper(next)
-			nitr := nf.Iterator()
-			if nitr.HasNext() {
-				nnext := nitr.Next()
-				pipe <- nnext
-			}
-		}
-		close(pipe)
-	}()
-	return newFluxIterator(pipe)
+	itrMapper := func(r R) iterator.Iterator[T] {
+		return f.mapper(r).Iterator()
+	}
+	return iterator.FlatMap[R, T](f.origin.Iterator(), itrMapper)
 }
 
 func (f *flatMappedFlux[R, T]) Close() {

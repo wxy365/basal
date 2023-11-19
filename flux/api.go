@@ -13,20 +13,13 @@ func FromMap[K comparable, V any](m map[K]V) Flux[iterator.MapEntry[K, V]] {
 		}
 		close(pipe)
 	}()
-	return &fluxImpl[iterator.MapEntry[K, V]]{
+	return &chanFlux[iterator.MapEntry[K, V]]{
 		data: pipe,
 	}
 }
 
 func FromSlice[T any](s []T) Flux[T] {
-	pipe := make(chan T)
-	go func() {
-		for _, t := range s {
-			pipe <- t
-		}
-		close(pipe)
-	}()
-	return &fluxImpl[T]{pipe}
+	return &sliceFlux[T]{tgt: s}
 }
 
 func FromRange[T int](start, end T) Flux[T] {
@@ -37,5 +30,5 @@ func FromRange[T int](start, end T) Flux[T] {
 		}
 		close(pipe)
 	}()
-	return &fluxImpl[T]{pipe}
+	return &chanFlux[T]{pipe}
 }
