@@ -3,19 +3,20 @@ package iterator
 import "github.com/wxy365/basal/fn"
 
 type mapIterator[K comparable, V any] struct {
-	tgt  map[K]V
-	pipe chan MapEntry[K, V]
-	cur  MapEntry[K, V]
-	next MapEntry[K, V]
+	tgt     map[K]V
+	pipe    chan MapEntry[K, V]
+	cur     MapEntry[K, V]
+	next    MapEntry[K, V]
+	hasNext bool
 }
 
 func (m *mapIterator[K, V]) HasNext() bool {
-	return m.next != nil
+	return m.hasNext
 }
 
 func (m *mapIterator[K, V]) Next() MapEntry[K, V] {
 	m.cur = m.next
-	m.next = <-m.pipe
+	m.next, m.hasNext = <-m.pipe
 	return m.cur
 }
 

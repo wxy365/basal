@@ -1,15 +1,21 @@
 package lei
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 )
 
 func TestError(t *testing.T) {
-	err := New("{0} is down", "a")
-	err1 := Wrap("{0} is larger than {1}", fmt.Errorf("wuwuw"), "lll", "mmmm")
-	err2 := Wrap("{0} is less than {1}", err, "kkk", "jjjj")
-	fmt.Println(err.Error())
-	fmt.Println(err1.Error())
-	fmt.Println(err2.Error())
+	err := New("{0} bar", "foo")
+	err1 := Wrap("{0} {1}", errors.New("something bad happened"), "oh", "no")
+	err2 := Wrap("{0} {1}", err, "come", "on")
+	if err.Error() != "{\"msg\":\"foo bar\"}" {
+		t.Fail()
+	}
+	if err1.Error() != "{\"msg\":\"oh no\",\"cause\":\"something bad happened\"}" {
+		t.Fail()
+	}
+	if err2.Error() != "{\"msg\":\"come on\",\"cause\":{\"msg\":\"foo bar\"}}" {
+		t.Fail()
+	}
 }

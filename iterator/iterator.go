@@ -1,6 +1,8 @@
 package iterator
 
-import "github.com/wxy365/basal/fn"
+import (
+	"github.com/wxy365/basal/fn"
+)
 
 type Iterator[T any] interface {
 	HasNext() bool
@@ -9,29 +11,29 @@ type Iterator[T any] interface {
 	ForEach(consumer fn.Consumer[T])
 }
 
-type dummyIterator[T any] struct {
+type DummyIterator[T any] struct {
 }
 
-func (d *dummyIterator[T]) HasNext() bool {
+func (d *DummyIterator[T]) HasNext() bool {
 	return false
 }
 
-func (d *dummyIterator[T]) Next() T {
+func (d *DummyIterator[T]) Next() T {
 	var t T
 	return t
 }
 
-func (d *dummyIterator[T]) Remove() {
+func (d *DummyIterator[T]) Remove() {
 }
 
-func (d *dummyIterator[T]) ForEach(consumer fn.Consumer[T]) {
+func (d *DummyIterator[T]) ForEach(consumer fn.Consumer[T]) {
 }
 
 func OfMap[K comparable, V any](tgt map[K]V) Iterator[MapEntry[K, V]] {
-	if tgt == nil {
-		return &dummyIterator[MapEntry[K, V]]{}
+	if len(tgt) == 0 {
+		return &DummyIterator[MapEntry[K, V]]{}
 	}
-	pipe := make(chan MapEntry[K, V])
+	pipe := make(chan MapEntry[K, V], len(tgt))
 	go func() {
 		defer func() {
 			// keep silence
@@ -42,16 +44,17 @@ func OfMap[K comparable, V any](tgt map[K]V) Iterator[MapEntry[K, V]] {
 		}
 		close(pipe)
 	}()
-	return &mapIterator[K, V]{
+	itr := &mapIterator[K, V]{
 		tgt:  tgt,
 		pipe: pipe,
-		next: <-pipe,
 	}
+	itr.next, itr.hasNext = <-pipe
+	return itr
 }
 
 func OfSlice[T any](tgt []T) Iterator[T] {
-	if tgt == nil {
-		return &dummyIterator[T]{}
+	if len(tgt) == 0 {
+		return &DummyIterator[T]{}
 	}
 	return &sliceIterator[T]{
 		tgt:       &tgt,
@@ -62,7 +65,7 @@ func OfSlice[T any](tgt []T) Iterator[T] {
 
 func OfChan[T any](tgt chan T) Iterator[T] {
 	if tgt == nil {
-		return &dummyIterator[T]{}
+		return &DummyIterator[T]{}
 	}
 	next := <-tgt
 	return &chanIterator[T]{

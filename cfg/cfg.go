@@ -231,7 +231,6 @@ func lookupNumberInCfg[T types.BasicNumberUnion](m map[string]any, key string, d
 			return b, nil
 		} else if f, ok := res.(float64); ok {
 			// json number is always parsed as float64 in unmarshalling
-			// as we want int eg., convert it in unsafe way
 			return T(f), nil
 		} else {
 			return t, lei.New("The value of key '{0}': '{1}' cannot be parsed as {2}", key, res, reflect.TypeOf(t).Name()).WithCode(ErrCodeCfgBadType)

@@ -1,10 +1,31 @@
 package cfg
 
 import (
+	"github.com/wxy365/basal/env"
 	"github.com/wxy365/basal/types"
 )
 
 var defaultCfg Cfg
+
+func init() {
+	var cfg Cfg
+	jsonPath, err := env.GetStr("BASAL_CFG_PATH", "./cfg/cfg.json")
+	if err == nil {
+		cfg, _ = ParseJsonFile(jsonPath)
+	}
+
+	jsonDir, err := env.GetStr("BASAL_CFG_DIR", "./cfg/")
+	if err == nil {
+		cfg1, _ := ParseJsonDir(jsonDir)
+		if len(cfg1) > 0 {
+			if len(cfg) == 0 {
+				cfg = cfg1
+			} else {
+				cfg.Merge(cfg1)
+			}
+		}
+	}
+}
 
 func SetDefault(cfg Cfg) {
 	defaultCfg = cfg
@@ -26,6 +47,10 @@ func SetDefaultFromDir(jsonDir string) (Cfg, error) {
 	var err error
 	defaultCfg, err = ParseJsonDir(jsonDir)
 	return defaultCfg, err
+}
+
+func HasDefault() bool {
+	return len(defaultCfg) > 0
 }
 
 func GetBoolDef(key string, def ...bool) (bool, error) {
