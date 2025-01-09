@@ -92,7 +92,7 @@ type locale int
 var localeKey locale
 
 func Message(ctx context.Context, key string, args ...any) string {
-	locales := ctx.Value(localeKey).(string)
+	locales, _ := ctx.Value(localeKey).(string)
 	languages := bd.Languages()
 	matcher := language.NewMatcher(languages)
 	tag, _ := language.MatchStrings(matcher, locales)
