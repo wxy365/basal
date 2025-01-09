@@ -16,7 +16,7 @@ func Exist(path string) (bool, error) {
 	return false, err
 }
 
-func OpenOrCreateFile(path string) (*os.File, error) {
+func OpenOrCreateFile(path string, flag int) (*os.File, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -24,7 +24,7 @@ func OpenOrCreateFile(path string) (*os.File, error) {
 			if err = os.MkdirAll(dir, os.ModePerm); err != nil {
 				return nil, err
 			}
-			file, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, os.ModePerm)
+			file, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|flag, os.ModePerm)
 			if err != nil {
 				return nil, err
 			}
