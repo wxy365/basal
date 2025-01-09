@@ -106,9 +106,9 @@ func (s *sliceFlux[T]) Emit() opt.Opt[T] {
 
 func (s *sliceFlux[T]) Iterator() iterator.Iterator[T] {
 	if s.next > len(s.tgt)-1 {
-		return iterator.OfSlice([]T{})
+		return iterator.FromSlice([]T{})
 	}
-	return iterator.OfSlice(s.tgt[s.next:])
+	return iterator.FromSlice(s.tgt[s.next:])
 }
 
 func (s *sliceFlux[T]) Close() {

@@ -14,7 +14,7 @@ func TestMapIterator(t *testing.T) {
 	m["d"] = 4
 
 	var sb strings.Builder
-	itr := OfMap(m)
+	itr := FromMap(m)
 	for itr.HasNext() {
 		nxt := itr.Next()
 		sb.WriteString(fmt.Sprintf("%s%d", nxt.GetKey(), nxt.GetValue()))

@@ -29,7 +29,7 @@ func (d *DummyIterator[T]) Remove() {
 func (d *DummyIterator[T]) ForEach(consumer fn.Consumer[T]) {
 }
 
-func OfMap[K comparable, V any](tgt map[K]V) Iterator[MapEntry[K, V]] {
+func FromMap[K comparable, V any](tgt map[K]V) Iterator[MapEntry[K, V]] {
 	if len(tgt) == 0 {
 		return &DummyIterator[MapEntry[K, V]]{}
 	}
@@ -52,7 +52,7 @@ func OfMap[K comparable, V any](tgt map[K]V) Iterator[MapEntry[K, V]] {
 	return itr
 }
 
-func OfSlice[T any](tgt []T) Iterator[T] {
+func FromSlice[T any](tgt []T) Iterator[T] {
 	if len(tgt) == 0 {
 		return &DummyIterator[T]{}
 	}
@@ -63,7 +63,7 @@ func OfSlice[T any](tgt []T) Iterator[T] {
 	}
 }
 
-func OfChan[T any](tgt chan T) Iterator[T] {
+func FromChan[T any](tgt chan T) Iterator[T] {
 	if tgt == nil {
 		return &DummyIterator[T]{}
 	}

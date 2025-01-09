@@ -17,5 +17,5 @@ func Distinct[T any](itr Iterator[T], comparer fn.Comparer[T]) Iterator[T] {
 			s = append(s, next)
 		}
 	}
-	return OfSlice(s)
+	return FromSlice(s)
 }

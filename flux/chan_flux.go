@@ -104,7 +104,7 @@ func (f *chanFlux[T]) Emit() opt.Opt[T] {
 }
 
 func (f *chanFlux[T]) Iterator() iterator.Iterator[T] {
-	return iterator.OfChan(f.data)
+	return iterator.FromChan(f.data)
 }
 
 func (f *chanFlux[T]) Close() {

@@ -16,5 +16,5 @@ func Sort[T any](itr Iterator[T], comparator fn.Comparator[T]) Iterator[T] {
 		}
 
 	}
-	return OfSlice(s)
+	return FromSlice(s)
 }
