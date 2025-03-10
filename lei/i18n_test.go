@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-//go:embed assets
+//go:embed i18n
 var fs embed.FS
 
 func TestI18n(t *testing.T) {

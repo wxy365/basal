@@ -10,7 +10,7 @@ func NewIndexSlice(n int) []int {
 	return ret
 }
 
-func Lookup[T any](s []T, tgt T, comparer fn.Comparer[T]) int {
+func Lookup[S ~[]T, T any](s S, tgt T, comparer fn.Comparer[T]) int {
 	for i, item := range s {
 		if comparer(item, tgt) {
 			return i
@@ -19,11 +19,11 @@ func Lookup[T any](s []T, tgt T, comparer fn.Comparer[T]) int {
 	return -1
 }
 
-func Contains[T any](s []T, t T, comparer fn.Comparer[T]) bool {
+func Contains[S ~[]T, T any](s S, t T, comparer fn.Comparer[T]) bool {
 	return Lookup(s, t, comparer) >= 0
 }
 
-func Eq[T any](s []T, another []T, comparer fn.Comparer[T]) bool {
+func Eq[S ~[]T, T any](s S, another S, comparer fn.Comparer[T]) bool {
 	if len(s) != len(another) {
 		return false
 	}
@@ -36,7 +36,7 @@ func Eq[T any](s []T, another []T, comparer fn.Comparer[T]) bool {
 }
 
 // EqIgOrder determines whether two slices are equal ignoring order
-func EqIgOrder[T any](s []T, another []T, comparer fn.Comparer[T]) bool {
+func EqIgOrder[S ~[]T, T any](s S, another S, comparer fn.Comparer[T]) bool {
 	if len(s) != len(another) {
 		return false
 	}
@@ -58,7 +58,7 @@ func EqIgOrder[T any](s []T, another []T, comparer fn.Comparer[T]) bool {
 	return true
 }
 
-func Merge[T any](s1 []T, s2 []T) []T {
+func Merge[S ~[]T, T any](s1 S, s2 S) S {
 	if len(s1) > len(s2) {
 		for i, item := range s2 {
 			s1[i] = item
@@ -71,7 +71,7 @@ func Merge[T any](s1 []T, s2 []T) []T {
 	return s2
 }
 
-func Del[T any](s []T, i int) []T {
+func Del[S ~[]T, T any](s S, i int) S {
 	if i < 0 || i > len(s)-1 {
 		return s
 	}
@@ -84,7 +84,7 @@ func Del[T any](s []T, i int) []T {
 	return append(s[:i], s[i+1:]...)
 }
 
-func DelRange[T any](s []T, from, to int) []T {
+func DelRange[S ~[]T, T any](s S, from, to int) S {
 	if from < 0 {
 		from = 0
 	}
@@ -97,7 +97,7 @@ func DelRange[T any](s []T, from, to int) []T {
 	return append(s[:from], s[to:]...)
 }
 
-func Insert[T any](s []T, t T, i int) []T {
+func Insert[S ~[]T, T any](s S, t T, i int) S {
 	if i < 0 {
 		i = 0
 	}
@@ -109,13 +109,13 @@ func Insert[T any](s []T, t T, i int) []T {
 	return s
 }
 
-func ForEach[T any](s []T, consumer fn.Consumer[T]) {
+func ForEach[S ~[]T, T any](s S, consumer fn.Consumer[T]) {
 	for _, item := range s {
 		consumer(item)
 	}
 }
 
-func Map[T, R any](s []T, function fn.Function[T, R]) []R {
+func Map[S ~[]T, U ~[]R, T, R any](s S, function fn.Function[T, R]) U {
 	res := make([]R, len(s))
 	for i, item := range s {
 		res[i] = function(item)
@@ -123,9 +123,9 @@ func Map[T, R any](s []T, function fn.Function[T, R]) []R {
 	return res
 }
 
-func New[T any](t T, l int) []T {
+func New[S ~[]T, T any](t T, l int) S {
 	s := make([]T, l)
-	s = Map(s, func(T) T {
+	s = Map[[]T, []T, T, T](s, func(T) T {
 		return t
 	})
 	return s

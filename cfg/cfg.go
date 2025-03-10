@@ -121,19 +121,19 @@ func (c Cfg) GetMap(key string, def ...map[string]any) (map[string]any, error) {
 	return GetObj(c, key, def...)
 }
 
-func (c Cfg) GetObj(key string, t *any, def ...any) error {
+func (c Cfg) GetObj(key string, t any, def ...any) error {
 	m, err := GetObj[map[string]any](c, key)
 	if err != nil {
 		var er *lei.Err
 		if errors.As(err, &er) && er.Code == ErrCodeCfgMissing {
 			if len(def) > 0 {
-				*t = def[0]
+				t = def[0]
 				return nil
 			}
 			return err
 		}
 	}
-	maps.ToObj(m, t)
+	maps.ToObj(m, &t)
 	return nil
 }
 
@@ -187,6 +187,9 @@ func GetObj[T any](c Cfg, key string, def ...T) (T, error) {
 
 func lookupInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
 	var t T
+	if len(m) == 0 {
+		return t, ErrCfgNotInitialized
+	}
 	parts := strings.Split(key, ".")
 	for i := 0; i < len(parts)-1; i++ {
 		if v, found := m[parts[i]]; found {
@@ -214,6 +217,9 @@ func lookupInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
 
 func lookupNumberInCfg[T types.BasicNumberUnion](m map[string]any, key string, def ...T) (T, error) {
 	var t T
+	if len(m) == 0 {
+		return t, ErrCfgNotInitialized
+	}
 	parts := strings.Split(key, ".")
 	for i := 0; i < len(parts)-1; i++ {
 		if v, found := m[parts[i]]; found {
@@ -244,6 +250,9 @@ func lookupNumberInCfg[T types.BasicNumberUnion](m map[string]any, key string, d
 
 func lookupObjInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
 	var t T
+	if len(m) == 0 {
+		return t, ErrCfgNotInitialized
+	}
 	parts := strings.Split(key, ".")
 	for i := 0; i < len(parts)-1; i++ {
 		if v, found := m[parts[i]]; found {
@@ -272,12 +281,3 @@ func lookupObjInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
 	}
 	return t, cfgAbsent(key)
 }
-
-func cfgAbsent(key string) error {
-	return lei.New("The configuration item '{0}' cannot be found", key).WithCode(ErrCodeCfgMissing)
-}
-
-const (
-	ErrCodeCfgMissing = "CFG_MISSING"
-	ErrCodeCfgBadType = "CFG_BAD_TYPE"
-)

@@ -18,7 +18,7 @@ var (
 )
 
 func AddMessagesFromEmbedFS(fs embed.FS) error {
-	return readDir(fs, "assets")
+	return readDir(fs, "i18n")
 }
 
 func readDir(fs embed.FS, dir string) error {
