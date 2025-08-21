@@ -2,27 +2,29 @@ package cfg
 
 import (
 	"encoding/json"
-	"errors"
-	"github.com/wxy365/basal/ds/maps"
-	"github.com/wxy365/basal/env"
-	"github.com/wxy365/basal/lei"
-	"github.com/wxy365/basal/types"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/wxy365/basal/ds/maps"
+	"github.com/wxy365/basal/env"
+	"github.com/wxy365/basal/errs"
+	"github.com/wxy365/basal/fn"
+	"github.com/wxy365/basal/types"
 )
 
 func ParseJsonFile(jsonPath string) (Cfg, error) {
 	file, err := os.Open(jsonPath)
 	if err != nil {
-		return nil, lei.Wrap("error in opening configuration json file '{0}'", err, jsonPath)
+		return nil, errs.Wrap(err, "error in opening configuration json file [{0}]", jsonPath)
 	}
 	jsonBytes, err := io.ReadAll(file)
 	if err != nil {
-		return nil, lei.Wrap("failed to read configuration file '{0}'", err, jsonPath)
+		return nil, errs.Wrap(err, "failed to read configuration file [{0}]", jsonPath)
 	}
 	return ParseJsonString(string(jsonBytes))
 }
@@ -31,7 +33,7 @@ func ParseJsonString(jsonStr string) (Cfg, error) {
 	c := make(Cfg)
 	err := json.Unmarshal([]byte(jsonStr), &c)
 	if err != nil {
-		return nil, lei.Wrap("failed to parse the configuration content", err)
+		return nil, errs.Wrap(err, "failed to parse the configuration content")
 	}
 	return c, nil
 }
@@ -117,24 +119,8 @@ func (c Cfg) GetStr(key string, def ...string) (string, error) {
 	return GetStr(c, key, def...)
 }
 
-func (c Cfg) GetMap(key string, def ...map[string]any) (map[string]any, error) {
-	return GetObj(c, key, def...)
-}
-
-func (c Cfg) GetObj(key string, t any, def ...any) error {
-	m, err := GetObj[map[string]any](c, key)
-	if err != nil {
-		var er *lei.Err
-		if errors.As(err, &er) && er.Code == ErrCodeCfgMissing {
-			if len(def) > 0 {
-				t = def[0]
-				return nil
-			}
-			return err
-		}
-	}
-	maps.ToObj(m, &t)
-	return nil
+func (c Cfg) Clear() {
+	clear(c)
 }
 
 func GetBool(c Cfg, key string, def ...bool) (bool, error) {
@@ -142,7 +128,10 @@ func GetBool(c Cfg, key string, def ...bool) (bool, error) {
 	if err == nil {
 		return val, nil
 	}
-	return lookupInCfg(c, key, def...)
+	return lookupInCfg(c, key, func(a any) (bool, bool) {
+		b, ok := a.(bool)
+		return b, ok
+	}, def...)
 }
 
 func GetInt[T types.IntUnion](c Cfg, key string, def ...T) (T, error) {
@@ -174,7 +163,12 @@ func GetStr(c Cfg, key string, def ...string) (string, error) {
 	if err == nil {
 		return val, nil
 	}
-	return lookupInCfg(c, key, def...)
+	return lookupInCfg(c, key,
+		func(a any) (string, bool) {
+			return fmt.Sprintf("%v", a), true
+		},
+		def...,
+	)
 }
 
 func GetObj[T any](c Cfg, key string, def ...T) (T, error) {
@@ -185,7 +179,11 @@ func GetObj[T any](c Cfg, key string, def ...T) (T, error) {
 	return lookupObjInCfg(c, key, def...)
 }
 
-func lookupInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
+func Clear(c Cfg) {
+	clear(c)
+}
+
+func lookupInCfg[T any](m map[string]any, key string, converter fn.TryFunction[any, T], def ...T) (T, error) {
 	var t T
 	if len(m) == 0 {
 		return t, ErrCfgNotInitialized
@@ -203,10 +201,12 @@ func lookupInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
 	}
 
 	if res, found := m[parts[len(parts)-1]]; found {
-		if b, ok := res.(T); ok {
-			return b, nil
+		if t1, ok := res.(T); ok {
+			return t1, nil
+		} else if t, ok = converter(res); ok {
+			return t, nil
 		} else {
-			return t, lei.New("The value of key '{0}': '{1}' cannot be parsed as {2}", key, res, reflect.TypeOf(t).Name()).WithCode(ErrCodeCfgBadType)
+			return t, cfgBadType(key, res, reflect.TypeOf(t).Name())
 		}
 	}
 	if len(def) > 0 {
@@ -216,68 +216,38 @@ func lookupInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
 }
 
 func lookupNumberInCfg[T types.BasicNumberUnion](m map[string]any, key string, def ...T) (T, error) {
-	var t T
-	if len(m) == 0 {
-		return t, ErrCfgNotInitialized
-	}
-	parts := strings.Split(key, ".")
-	for i := 0; i < len(parts)-1; i++ {
-		if v, found := m[parts[i]]; found {
-			var ok bool
-			if m, ok = v.(map[string]any); !ok {
-				return t, cfgAbsent(key)
+	return lookupInCfg(
+		m,
+		key,
+		func(a any) (T, bool) {
+			if f, ok := a.(float64); ok {
+				return T(f), true
 			}
-		} else {
-			return t, cfgAbsent(key)
-		}
-	}
-
-	if res, found := m[parts[len(parts)-1]]; found {
-		if b, ok := res.(T); ok {
-			return b, nil
-		} else if f, ok := res.(float64); ok {
-			// json number is always parsed as float64 in unmarshalling
-			return T(f), nil
-		} else {
-			return t, lei.New("The value of key '{0}': '{1}' cannot be parsed as {2}", key, res, reflect.TypeOf(t).Name()).WithCode(ErrCodeCfgBadType)
-		}
-	}
-	if len(def) > 0 {
-		return def[0], nil
-	}
-	return t, cfgAbsent(key)
+			var t T
+			return t, false
+		},
+		def...,
+	)
 }
 
 func lookupObjInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
-	var t T
-	if len(m) == 0 {
-		return t, ErrCfgNotInitialized
-	}
-	parts := strings.Split(key, ".")
-	for i := 0; i < len(parts)-1; i++ {
-		if v, found := m[parts[i]]; found {
-			var ok bool
-			if m, ok = v.(map[string]any); !ok {
-				return t, cfgAbsent(key)
+	return lookupInCfg(
+		m,
+		key,
+		func(a any) (T, bool) {
+			switch mp := a.(type) {
+			case map[string]any:
+				newT := new(T)
+				maps.ToObj(mp, newT)
+				return *newT, true
+			case []any:
+				newT := new(T)
+				maps.ToObj(mp, newT)
+				return *newT, true
 			}
-		} else {
-			return t, cfgAbsent(key)
-		}
-	}
-
-	if res, found := m[parts[len(parts)-1]]; found {
-		if b, ok := res.(T); ok {
-			return b, nil
-		} else if m, ok := res.(map[string]any); ok {
-			tt := new(T)
-			maps.ToObj[T](m, tt)
-			return *tt, nil
-		} else {
-			return t, lei.New("The value of key '{0}': '{1}' cannot be parsed as {2}", key, res, reflect.TypeOf(t).Name()).WithCode(ErrCodeCfgBadType)
-		}
-	}
-	if len(def) > 0 {
-		return def[0], nil
-	}
-	return t, cfgAbsent(key)
+			var t T
+			return t, false
+		},
+		def...,
+	)
 }

@@ -1,9 +1,10 @@
 package maps
 
 import (
+	"strings"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/wxy365/basal/text"
-	"strings"
 )
 
 // Merge merges entries in map `another` into map `m`
@@ -29,7 +30,11 @@ func Merge[K comparable, V any](m map[K]V, another map[K]V, replace ...bool) map
 	return m
 }
 
-func ToObj[T any](m map[string]any, t *T) {
+type MapOrSlice interface {
+	map[string]any | []any
+}
+
+func ToObj[T any, M MapOrSlice](m M, t *T) {
 	if len(m) == 0 {
 		return
 	}

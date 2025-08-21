@@ -11,12 +11,12 @@ var defaultCfg cfg.Cfg
 func init() {
 	var config cfg.Cfg
 
-	jsonStr, err := env.GetStr("BASAL_CFG")
+	jsonStr, err := env.GetStr("APP_CFG")
 	if err == nil && jsonStr != "" {
 		config, _ = cfg.ParseJsonString(jsonStr)
 	}
 
-	jsonPath, err := env.GetStr("BASAL_CFG_PATH", "./config/config.json")
+	jsonPath, err := env.GetStr("APP_CFG_PATH", "./config/config.json")
 	if err == nil {
 		cfg1, _ := cfg.ParseJsonFile(jsonPath)
 		if len(config) == 0 {
@@ -26,7 +26,7 @@ func init() {
 		}
 	}
 
-	jsonDir, err := env.GetStr("BASAL_CFG_DIR", "./config/")
+	jsonDir, err := env.GetStr("APP_CFG_DIR", "./config/")
 	if err == nil {
 		cfg1, _ := cfg.ParseJsonDir(jsonDir)
 		if len(cfg1) > 0 {
@@ -89,4 +89,12 @@ func GetStr(key string, def ...string) (string, error) {
 
 func GetObj[T any](key string, def ...T) (T, error) {
 	return cfg.GetObj(defaultCfg, key, def...)
+}
+
+func Clear() {
+	defaultCfg.Clear()
+}
+
+func GetCfg() cfg.Cfg {
+	return defaultCfg
 }

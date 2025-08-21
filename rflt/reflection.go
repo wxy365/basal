@@ -3,8 +3,9 @@ package rflt
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/wxy365/basal/lei"
 	"reflect"
+
+	"github.com/wxy365/basal/errs"
 )
 
 func SetFieldValue[T any](target any, fieldName string, fieldValue T) error {
@@ -110,7 +111,7 @@ func ValueToString(from reflect.Value) (string, error) {
 		if from.CanInterface() {
 			return fmt.Sprintf("%+v", from.Interface()), nil
 		} else {
-			return "", lei.New("Cannot convert value of {0} kind to string", from.Kind().String())
+			return "", errs.New("Cannot convert value of {0} kind to string", from.Kind().String())
 		}
 	}
 }
@@ -118,11 +119,11 @@ func ValueToString(from reflect.Value) (string, error) {
 func shouldBePointerToStruct(target any) (reflect.Value, error) {
 	v := reflect.ValueOf(target)
 	if v.Kind() != reflect.Pointer {
-		return v, lei.New("The target must be a pointer to struct")
+		return v, errs.New("The target must be a pointer to struct")
 	}
 	v = v.Elem()
 	if v.Kind() != reflect.Struct {
-		return v, lei.New("The target must be a pointer to struct")
+		return v, errs.New("The target must be a pointer to struct")
 	}
 	return v, nil
 }

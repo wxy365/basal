@@ -1,10 +1,13 @@
-package lei
+package log
 
 import (
 	"errors"
-	"github.com/rs/zerolog"
-	"github.com/wxy365/basal/text"
 	"os"
+
+	"github.com/rs/zerolog"
+	"github.com/wxy365/basal/cfg/def"
+	"github.com/wxy365/basal/errs"
+	"github.com/wxy365/basal/text"
 )
 
 var (
@@ -14,28 +17,22 @@ var (
 func init() {
 	var level zerolog.Level
 	var err error
-	levelValue, ok := os.LookupEnv("BASAL_LOG_LEVEL")
-	if !ok {
-		level = zerolog.WarnLevel
-	} else {
-		level, err = zerolog.ParseLevel(levelValue)
-		if err != nil {
-			panic(Wrap("Cannot parse log level: "+levelValue, err))
-		}
+	levelValue, _ := def.GetStr("app.log.level", "warn")
+	level, err = zerolog.ParseLevel(levelValue)
+	if err != nil {
+		panic(errs.Wrap(err, "Cannot parse log level: "+levelValue))
 	}
 
 	out := os.Stdout
-	logPath, ok := os.LookupEnv("BASAL_LOG_PATH")
-	if ok {
+	logPath, _ := def.GetStr("app.log.path")
+	if logPath != "" {
 		out, err = os.OpenFile(logPath, os.O_RDWR|os.O_CREATE, os.ModePerm)
 		if err != nil {
-			panic(Wrap("Cannot open log file", err))
+			panic(errs.Wrap(err, "Cannot open log file"))
 		}
 	}
 
-	logger = zerolog.New(
-		out,
-	).Level(level).With().Timestamp().Caller().Logger()
+	logger = zerolog.New(out).Level(level).With().Timestamp().Caller().Logger()
 }
 
 func Debug(format string, args ...any) {
@@ -117,7 +114,7 @@ func log(event *zerolog.Event, format string, args ...any) {
 
 func logErr(event *zerolog.Event, err error) {
 	event.CallerSkipFrame(2)
-	var e *Err
+	var e *errs.Err
 	if errors.As(err, &e) {
 		if e.Cause != nil {
 			appendCause(event, e.Cause)
@@ -136,9 +133,9 @@ func logErrF(event *zerolog.Event, format string, err error, args ...any) {
 }
 
 func appendCause(event *zerolog.Event, err error) *zerolog.Event {
-	var e *Err
+	var e *errs.Err
 	if errors.As(err, &e) {
-		event.Object("cause", &ErrMarshaller{e})
+		event.Object("cause", &errs.ErrMarshaller{e})
 	} else {
 		event.Str("cause", err.Error())
 	}

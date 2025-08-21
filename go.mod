@@ -1,6 +1,6 @@
 module github.com/wxy365/basal
 
-go 1.22
+go 1.25
 
 require (
 	github.com/mitchellh/mapstructure v1.5.0

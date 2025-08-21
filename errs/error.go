@@ -1,37 +1,39 @@
-package lei
+package errs
 
 import (
 	"context"
 	"errors"
-	"github.com/rs/zerolog"
-	"github.com/wxy365/basal/text"
 	"reflect"
 	"strings"
+
+	"github.com/rs/zerolog"
+	"github.com/wxy365/basal/i18n"
+	"github.com/wxy365/basal/text"
 )
 
 type Err struct {
-	Code    string
-	Message string
-	Cause   error
-	Status  int // Equivalent to http status
+	Code    string `json:"code" form:"code"`
+	Message string `json:"message" form:"message"`
+	Cause   error  `json:"cause" form:`
+	Status  int    // Equivalent to http status
 }
 
 type ErrMarshaller struct {
-	tgt *Err
+	Tgt *Err
 }
 
 func (e *ErrMarshaller) MarshalZerologObject(event *zerolog.Event) {
-	if len(e.tgt.Code) > 0 {
-		event.Str("code", e.tgt.Code)
+	if len(e.Tgt.Code) > 0 {
+		event.Str("code", e.Tgt.Code)
 	}
-	if len(e.tgt.Message) > 0 {
-		event.Str("message", e.tgt.Message)
+	if len(e.Tgt.Message) > 0 {
+		event.Str("message", e.Tgt.Message)
 	}
-	if e.tgt.Cause != nil {
-		if err, ok := e.tgt.Cause.(*Err); ok {
+	if e.Tgt.Cause != nil {
+		if err, ok := e.Tgt.Cause.(*Err); ok {
 			event.Object("cause", &ErrMarshaller{err})
 		} else {
-			event.Str("cause", e.tgt.Cause.Error())
+			event.Str("cause", e.Tgt.Cause.Error())
 		}
 	}
 }
@@ -42,7 +44,7 @@ func (e *Err) Error() string {
 		b.Push("\"code\":\"", e.Code, "\",")
 	}
 	if len(e.Message) > 0 {
-		b.Push("\"msg\":\"", e.Message, "\",")
+		b.Push("\"message\":\"", e.Message, "\",")
 	}
 	if e.Cause != nil {
 		var er *Err
@@ -87,14 +89,14 @@ func New(msg string, args ...any) *Err {
 }
 
 func I18nNew(ctx context.Context, key string, args ...any) *Err {
-	msg := Message(ctx, key, args...)
+	msg := i18n.Message(ctx, key, args...)
 	return &Err{
 		Code:    key,
 		Message: msg,
 	}
 }
 
-func Wrap(msg string, cause error, args ...any) *Err {
+func Wrap(cause error, msg string, args ...any) *Err {
 	if len(args) > 0 {
 		msg = text.Render(msg, args...)
 	}
@@ -105,7 +107,7 @@ func Wrap(msg string, cause error, args ...any) *Err {
 }
 
 func I18nWrap(ctx context.Context, key string, cause error, args ...any) *Err {
-	msg := Message(ctx, key, args...)
+	msg := i18n.Message(ctx, key, args...)
 	return &Err{
 		Code:    key,
 		Message: msg,

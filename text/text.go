@@ -2,10 +2,11 @@ package text
 
 import (
 	"fmt"
-	"github.com/wxy365/basal/fn"
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/wxy365/basal/fn"
 )
 
 func Render(format string, args ...any) string {

@@ -2,12 +2,13 @@ package env
 
 import (
 	"encoding/json"
-	"github.com/wxy365/basal/lei"
-	"github.com/wxy365/basal/types"
 	"os"
 	"strconv"
 	"strings"
 	"unsafe"
+
+	"github.com/wxy365/basal/errs"
+	"github.com/wxy365/basal/types"
 )
 
 func GetBool(k string, def ...bool) (bool, error) {
@@ -15,7 +16,7 @@ func GetBool(k string, def ...bool) (bool, error) {
 	if found {
 		r, err := strconv.ParseBool(v)
 		if err != nil {
-			return false, lei.New("The value of environment variable '{0}': '{1}' cannot be parsed as bool", k, v).WithCode(ErrCodeEnvBadType)
+			return false, errs.New("The value of environment variable [{0}]: [{1}] cannot be parsed as bool", k, v).WithCode(ErrCodeEnvBadType)
 		}
 		return r, nil
 	}
@@ -94,7 +95,7 @@ func GetObj[T any](k string, def ...T) (T, error) {
 	if found {
 		err := json.Unmarshal([]byte(v), &t)
 		if err != nil {
-			return t, lei.Wrap("Unable to deserialize object from environment variable {0}", err, k)
+			return t, errs.Wrap(err, "Unable to deserialize object from environment variable [{0}]", k)
 		}
 		return t, nil
 	}
@@ -120,11 +121,11 @@ func lookup(k string) (string, bool) {
 }
 
 func errEnvAbsent(k string) error {
-	return lei.New("Environment variable '{0}' is not found", k).WithCode(ErrCodeEnvMissing)
+	return errs.New("Environment variable [{0}] is not found", k).WithCode(ErrCodeEnvMissing)
 }
 
 func errEnvNotNumber(k string, v string, cause error) error {
-	return lei.Wrap("The value of environment variable '{0}': '{1}' cannot be parsed as number", cause, k, v).WithCode(ErrCodeEnvBadType)
+	return errs.Wrap(cause, "The value of environment variable [{0}]: [{1}] cannot be parsed as number", k, v).WithCode(ErrCodeEnvBadType)
 }
 
 const (

@@ -2,11 +2,16 @@ package cfg
 
 import (
 	"errors"
-	"github.com/wxy365/basal/lei"
+
+	"github.com/wxy365/basal/errs"
 )
 
 func cfgAbsent(key string) error {
-	return lei.New("The configuration item '{0}' cannot be found", key).WithCode(ErrCodeCfgMissing)
+	return errs.New("The configuration item [{0}] cannot be found", key).WithCode(ErrCodeCfgMissing)
+}
+
+func cfgBadType(key string, value any, expectedType string) error {
+	return errs.New("The value of configuration item [{0}]: [{1}] cannot be parsed as [{2}]", key, value, expectedType).WithCode(ErrCodeCfgBadType)
 }
 
 const (
@@ -16,11 +21,11 @@ const (
 )
 
 var (
-	ErrCfgNotInitialized = lei.New("configuration not initialized").WithCode(ErrCodeCfgNotInitialized)
+	ErrCfgNotInitialized = errs.New("configuration not initialized").WithCode(ErrCodeCfgNotInitialized)
 )
 
 func IsCfgMissingErr(err error) bool {
-	var e *lei.Err
+	var e *errs.Err
 	if !errors.As(err, &e) {
 		return false
 	}

@@ -1,15 +1,16 @@
-package lei
+package i18n
 
 import (
 	"context"
 	"embed"
 	"encoding/json"
+	"strings"
+	"sync"
+
 	cmn "github.com/wxy365/basal/text"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"golang.org/x/text/message/catalog"
-	"strings"
-	"sync"
 )
 
 var (
@@ -40,7 +41,7 @@ func readDir(fs embed.FS, dir string) error {
 			l := len(eles)
 			switch len(eles) {
 			case 0:
-				return New("illegal i18n json file name: {0}", path)
+				continue
 			case 1:
 				lcl = eles[0]
 			default:
@@ -53,7 +54,7 @@ func readDir(fs embed.FS, dir string) error {
 			messages := make(map[string]string)
 			err = json.Unmarshal(content, &messages)
 			if err != nil {
-				return New("illegal content of file {0}", path)
+				continue
 			}
 			err = AddMessages(lcl, messages)
 			if err != nil {
@@ -67,12 +68,12 @@ func readDir(fs embed.FS, dir string) error {
 func AddMessages(locale string, messages map[string]string) error {
 	langTag, err := language.Parse(locale)
 	if err != nil {
-		return Wrap("Failed to parse language {0}", err, locale)
+		return err
 	}
 	for k, v := range messages {
 		err := bd.SetString(langTag, k, v)
 		if err != nil {
-			return Wrap("Failed to set message {{0}:{1}}", err, k, v)
+			return err
 		}
 	}
 	printer := message.NewPrinter(langTag, message.Catalog(bd))

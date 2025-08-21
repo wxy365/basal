@@ -56,6 +56,8 @@ func (b BiPredicate[T, U]) Or(other BiPredicate[T, U]) BiPredicate[T, U] {
 
 type Function[T, R any] func(T) R
 
+type TryFunction[T, R any] func(T) (R, bool)
+
 func ComposeFunction[V, T, R any](cur Function[T, R], before Function[V, T]) Function[V, R] {
 	return func(v V) R {
 		return cur(before(v))

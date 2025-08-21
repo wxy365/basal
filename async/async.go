@@ -1,6 +1,6 @@
 package async
 
-import "github.com/wxy365/basal/lei"
+import "github.com/wxy365/basal/log"
 
 func GoRecover(f func(), panicHandler func(e any)) {
 	go func() {
@@ -10,9 +10,9 @@ func GoRecover(f func(), panicHandler func(e any)) {
 					panicHandler(e)
 				} else {
 					if err, ok := e.(error); ok {
-						lei.ErrorErrF("panic", err)
+						log.ErrorErrF("panic", err)
 					} else {
-						lei.Error("panic: {0}", e)
+						log.Error("panic: {0}], e)
 					}
 				}
 			}
