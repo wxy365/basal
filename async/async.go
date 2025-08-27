@@ -12,7 +12,7 @@ func GoRecover(f func(), panicHandler func(e any)) {
 					if err, ok := e.(error); ok {
 						log.ErrorErrF("panic", err)
 					} else {
-						log.Error("panic: {0}], e)
+						log.Error("panic: {0}", e)
 					}
 				}
 			}
