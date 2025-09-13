@@ -45,7 +45,7 @@ func ToObj[T any, M MapOrSlice](m M, t *T) {
 		WeaklyTypedInput:     true,
 		Squash:               true,
 		Result:               t,
-		TagName:              "json",
+		TagName:              "map",
 		IgnoreUntaggedFields: false,
 		MatchName: func(mapKey, fieldName string) bool {
 			if strings.EqualFold(mapKey, fieldName) {

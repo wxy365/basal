@@ -14,8 +14,8 @@ import (
 type Err struct {
 	Code    string `json:"code" form:"code"`
 	Message string `json:"message" form:"message"`
-	Cause   error  `json:"cause" form:`
-	Status  int    // Equivalent to http status
+	Cause   error  `json:"cause" form:"cause"`
+	Status  int    `json:"status" form:"status"` // Equivalent to http status
 }
 
 type ErrMarshaller struct {

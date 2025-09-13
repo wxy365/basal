@@ -15,6 +15,7 @@ import (
 	"github.com/wxy365/basal/errs"
 	"github.com/wxy365/basal/fn"
 	"github.com/wxy365/basal/types"
+	"gopkg.in/yaml.v3"
 )
 
 func ParseJsonFile(jsonPath string) (Cfg, error) {
@@ -29,6 +30,18 @@ func ParseJsonFile(jsonPath string) (Cfg, error) {
 	return ParseJsonString(string(jsonBytes))
 }
 
+func ParseYamlFile(yamlPath string) (Cfg, error) {
+	file, err := os.Open(yamlPath)
+	if err != nil {
+		return nil, errs.Wrap(err, "error in opening configuration yaml file [{0}]", yamlPath)
+	}
+	yamlBytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, errs.Wrap(err, "failed to read configuration file [{0}]", yamlPath)
+	}
+	return ParseYamlString(string(yamlBytes))
+}
+
 func ParseJsonString(jsonStr string) (Cfg, error) {
 	c := make(Cfg)
 	err := json.Unmarshal([]byte(jsonStr), &c)
@@ -38,19 +51,37 @@ func ParseJsonString(jsonStr string) (Cfg, error) {
 	return c, nil
 }
 
-func ParseJsonDir(jsonDir string) (Cfg, error) {
+func ParseYamlString(yamlStr string) (Cfg, error) {
 	c := make(Cfg)
-	err := filepath.WalkDir(jsonDir, func(path string, d fs.DirEntry, err error) error {
+	err := yaml.Unmarshal([]byte(yamlStr), &c)
+	if err != nil {
+		return nil, errs.Wrap(err, "failed to parse the configuration content")
+	}
+	return c, nil
+}
+
+func LoadFromDir(dir string) (Cfg, error) {
+	c := make(Cfg)
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
 		if d.IsDir() {
 			return nil
 		}
-		if !strings.HasSuffix(d.Name(), ".json") {
+		var cfg Cfg
+		var err error
+		if strings.HasSuffix(d.Name(), ".json") {
+			cfg, err = ParseJsonFile(path)
+		} else if strings.HasSuffix(d.Name(), ".yaml") || strings.HasSuffix(d.Name(), ".yml") {
+			cfg, err = ParseYamlFile(path)
+		} else {
 			return nil
 		}
-		cfg, err := ParseJsonFile(path)
 		if err != nil {
-			return err
+			return errs.Wrap(err, "failed to load configuration file [{0}]", path)
 		}
+
 		c.Merge(cfg)
 		return nil
 	})

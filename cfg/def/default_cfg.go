@@ -28,7 +28,7 @@ func init() {
 
 	jsonDir, err := env.GetStr("APP_CFG_DIR", "./config/")
 	if err == nil {
-		cfg1, _ := cfg.ParseJsonDir(jsonDir)
+		cfg1, _ := cfg.LoadFromDir(jsonDir)
 		if len(cfg1) > 0 {
 			if len(config) == 0 {
 				config = cfg1
@@ -59,7 +59,7 @@ func SetDefaultFromStr(jsonStr string) (cfg.Cfg, error) {
 
 func SetDefaultFromDir(jsonDir string) (cfg.Cfg, error) {
 	var err error
-	defaultCfg, err = cfg.ParseJsonDir(jsonDir)
+	defaultCfg, err = cfg.LoadFromDir(jsonDir)
 	return defaultCfg, err
 }
 
