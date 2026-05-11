@@ -40,14 +40,14 @@ func EqIgOrder[S ~[]T, T any](s S, another S, comparer fn.Comparer[T]) bool {
 	if len(s) != len(another) {
 		return false
 	}
-	idxes := NewIndexSlice(len(another))
-	for i1 := 0; i1 < len(s); {
-		item1 := s[i1]
+	// build frequency map of the first slice by matching against the second
+	used := make([]bool, len(another))
+	for i := 0; i < len(s); i++ {
 		found := false
-		for j, i2 := range idxes {
-			if comparer(item1, another[i2]) {
+		for j := 0; j < len(another); j++ {
+			if !used[j] && comparer(s[i], another[j]) {
+				used[j] = true
 				found = true
-				idxes = append(idxes[:j], idxes[j+1:]...)
 				break
 			}
 		}
@@ -125,8 +125,8 @@ func Map[S ~[]T, U ~[]R, T, R any](s S, function fn.Function[T, R]) U {
 
 func New[S ~[]T, T any](t T, l int) S {
 	s := make([]T, l)
-	s = Map[[]T, []T, T, T](s, func(T) T {
-		return t
-	})
+	for i := 0; i < l; i++ {
+		s[i] = t
+	}
 	return s
 }

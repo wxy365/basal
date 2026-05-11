@@ -135,7 +135,7 @@ func logErrF(event *zerolog.Event, format string, err error, args ...any) {
 func appendCause(event *zerolog.Event, err error) *zerolog.Event {
 	var e *errs.Err
 	if errors.As(err, &e) {
-		event.Object("cause", &errs.ErrMarshaller{e})
+		event.Object("cause", &errs.ErrMarshaller{Tgt: e})
 	} else {
 		event.Str("cause", err.Error())
 	}

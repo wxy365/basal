@@ -23,6 +23,7 @@ func ParseJsonFile(jsonPath string) (Cfg, error) {
 	if err != nil {
 		return nil, errs.Wrap(err, "error in opening configuration json file [{0}]", jsonPath)
 	}
+	defer file.Close()
 	jsonBytes, err := io.ReadAll(file)
 	if err != nil {
 		return nil, errs.Wrap(err, "failed to read configuration file [{0}]", jsonPath)
@@ -35,6 +36,7 @@ func ParseYamlFile(yamlPath string) (Cfg, error) {
 	if err != nil {
 		return nil, errs.Wrap(err, "error in opening configuration yaml file [{0}]", yamlPath)
 	}
+	defer file.Close()
 	yamlBytes, err := io.ReadAll(file)
 	if err != nil {
 		return nil, errs.Wrap(err, "failed to read configuration file [{0}]", yamlPath)
@@ -196,6 +198,9 @@ func GetStr(c Cfg, key string, def ...string) (string, error) {
 	}
 	return lookupInCfg(c, key,
 		func(a any) (string, bool) {
+			if s, ok := a.(string); ok {
+				return s, ok
+			}
 			return fmt.Sprintf("%v", a), true
 		},
 		def...,
@@ -269,11 +274,17 @@ func lookupObjInCfg[T any](m map[string]any, key string, def ...T) (T, error) {
 			switch mp := a.(type) {
 			case map[string]any:
 				newT := new(T)
-				maps.ToObj(mp, newT)
+				if err := maps.ToObj(mp, newT); err != nil {
+					var t T
+					return t, false
+				}
 				return *newT, true
 			case []any:
 				newT := new(T)
-				maps.ToObj(mp, newT)
+				if err := maps.ToObj(mp, newT); err != nil {
+					var t T
+					return t, false
+				}
 				return *newT, true
 			}
 			var t T

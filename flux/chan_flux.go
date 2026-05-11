@@ -1,13 +1,16 @@
 package flux
 
 import (
+	"sync"
+
 	"github.com/wxy365/basal/fn"
 	"github.com/wxy365/basal/iterator"
 	"github.com/wxy365/basal/opt"
 )
 
 type chanFlux[T any] struct {
-	data chan T
+	data      chan T
+	closeOnce sync.Once
 }
 
 func (f *chanFlux[T]) Filter(predicate fn.Predicate[T]) Flux[T] {
@@ -108,5 +111,5 @@ func (f *chanFlux[T]) Iterator() iterator.Iterator[T] {
 }
 
 func (f *chanFlux[T]) Close() {
-	close(f.data)
+	f.closeOnce.Do(func() { close(f.data) })
 }

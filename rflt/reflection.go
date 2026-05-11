@@ -69,17 +69,23 @@ func SetFieldIValueAny(target any, i int, fieldValue any) error {
 }
 
 func UnmarshalValue(target reflect.Value, from string) error {
-	k := target.Kind()
-	if k == reflect.String {
-		from = "\"" + from + "\""
-		target = target.Addr()
-	} else if k == reflect.Pointer {
-		inner := target.Elem()
-		if inner.Kind() == reflect.String {
-			from = "\"" + from + "\""
+	// ensure we work with an addressable value
+	if target.Kind() != reflect.Pointer {
+		if !target.CanAddr() {
+			// target is a value copy; create new zero value, unmarshal into it, then set
+			newVal := reflect.New(target.Type())
+			target = newVal
+		} else {
+			target = target.Addr()
 		}
-	} else {
-		target = target.Addr()
+	}
+	// unwrap pointer to get the inner value
+	inner := target
+	for inner.Kind() == reflect.Pointer {
+		inner = inner.Elem()
+	}
+	if inner.Kind() == reflect.String {
+		from = "\"" + from + "\""
 	}
 
 	return json.Unmarshal([]byte(from), target.Interface())

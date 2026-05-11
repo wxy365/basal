@@ -33,7 +33,7 @@ func FromRange[T types.BasicNumberUnion](start, end T) Flux[T] {
 		}
 		close(pipe)
 	}()
-	return &chanFlux[T]{pipe}
+	return &chanFlux[T]{data: pipe}
 }
 
 type Flux[T any] interface {
@@ -183,17 +183,6 @@ func (f *filteredFlux[T]) Emit() opt.Opt[T] {
 }
 
 func (f *filteredFlux[T]) Iterator() iterator.Iterator[T] {
-	pipe := make(chan T)
-	go func() {
-		itr := f.origin.Iterator()
-		for itr.HasNext() {
-			n := itr.Next()
-			if f.filter(n) {
-				pipe <- n
-			}
-		}
-		close(pipe)
-	}()
 	return iterator.Filter(f.origin.Iterator(), f.filter)
 }
 
@@ -310,7 +299,6 @@ func (f *sortedFlux[T]) Close() {
 type distinctFlux[T any] struct {
 	origin   Flux[T]
 	comparer fn.Comparer[T]
-	emitted  []T
 }
 
 func (f *distinctFlux[T]) Filter(predicate fn.Predicate[T]) Flux[T] {
@@ -1033,22 +1021,22 @@ func (f *flatMappedFlux[T, R]) NoneMatch(predicate fn.Predicate[R]) bool {
 }
 
 func (f *flatMappedFlux[T, R]) Emit() opt.Opt[R] {
-	if f.mappedEle == nil {
-		r := f.origin.Emit()
-		if r.IsPresent() {
-			f.mappedEle = f.mapper(r.Get())
+	for {
+		if f.mappedEle == nil {
+			r := f.origin.Emit()
+			if r.IsPresent() {
+				f.mappedEle = f.mapper(r.Get())
+			} else {
+				return opt.Empty[R]()
+			}
 		} else {
-			return opt.Empty[R]()
-		}
-	} else {
-		t := f.mappedEle.Emit()
-		if t.IsPresent() {
-			return t
-		} else {
+			t := f.mappedEle.Emit()
+			if t.IsPresent() {
+				return t
+			}
 			f.mappedEle = nil
 		}
 	}
-	return f.Emit()
 }
 
 func (f *flatMappedFlux[T, R]) Iterator() iterator.Iterator[R] {

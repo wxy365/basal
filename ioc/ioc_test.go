@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestReflect(t *testing.T) {
+func TestIOC(t *testing.T) {
 	a := &A{
 		Field1: "a f1",
 	}
@@ -33,6 +33,23 @@ func TestReflect(t *testing.T) {
 	if c.Field3 != d2 {
 		t.Fail()
 	}
+
+	b2, ok := Get[*B]()
+	if !ok {
+		t.Fail()
+	}
+	if b2 != b {
+		t.Fail()
+	}
+
+	d3, ok := GetByName[*D]("d2")
+	if !ok {
+		t.Fail()
+	}
+	if d3 != d2 {
+		t.Fail()
+	}
+
 }
 
 type A struct {

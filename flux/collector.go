@@ -32,8 +32,7 @@ func JoinStringCollector(delimiter, prefix, suffix string) Collector[string, *[]
 			return &ret
 		},
 		gatherer: func(t *[]string, u string) {
-			s := *t
-			s = append(s, u)
+			*t = append(*t, u)
 		},
 		synthesizer: nil,
 		finisher: func(i *[]string) string {

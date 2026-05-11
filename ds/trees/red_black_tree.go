@@ -29,6 +29,22 @@ type RBTree[K any, V any] struct {
 	comparator fn.Comparator[K]
 }
 
+func (rbt *RBTree[K, V]) Find(key K) (V, bool) {
+	node := rbt.root
+	for node != nil {
+		cmp := rbt.comparator(key, node.Key)
+		if cmp == 0 {
+			return node.Value, true
+		} else if cmp < 0 {
+			node = node.Left
+		} else {
+			node = node.Right
+		}
+	}
+	var zero V
+	return zero, false
+}
+
 func (rbt *RBTree[K, V]) Insert(key K, value V) {
 	newNode := &Node[K, V]{
 		Key:   key,
@@ -132,7 +148,9 @@ func (rbt *RBTree[K, V]) rotateLeft(n *Node[K, V]) {
 	}
 	rChild.Left = n
 	n.Parent = rChild
-	rbt.root = rChild
+	if n.Parent == nil {
+		rbt.root = rChild
+	}
 }
 
 func (rbt *RBTree[K, V]) rotateRight(n *Node[K, V]) {
@@ -151,5 +169,7 @@ func (rbt *RBTree[K, V]) rotateRight(n *Node[K, V]) {
 	}
 	lChild.Right = n
 	n.Parent = lChild
-	rbt.root = lChild
+	if n.Parent == nil {
+		rbt.root = lChild
+	}
 }

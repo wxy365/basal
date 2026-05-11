@@ -34,9 +34,9 @@ type MapOrSlice interface {
 	map[string]any | []any
 }
 
-func ToObj[T any, M MapOrSlice](m M, t *T) {
+func ToObj[T any, M MapOrSlice](m M, t *T) error {
 	if len(m) == 0 {
-		return
+		return nil
 	}
 	dcfg := mapstructure.DecoderConfig{
 		ErrorUnset:           false,
@@ -57,6 +57,9 @@ func ToObj[T any, M MapOrSlice](m M, t *T) {
 			return false
 		},
 	}
-	decoder, _ := mapstructure.NewDecoder(&dcfg)
-	_ = decoder.Decode(m)
+	decoder, err := mapstructure.NewDecoder(&dcfg)
+	if err != nil {
+		return err
+	}
+	return decoder.Decode(m)
 }

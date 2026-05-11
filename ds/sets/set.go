@@ -1,6 +1,8 @@
 package sets
 
 import (
+	"sync"
+
 	"github.com/wxy365/basal/fn"
 	"github.com/wxy365/basal/iterator"
 )
@@ -36,31 +38,30 @@ func (s *Set[T]) Iterator() iterator.Iterator[T] {
 	if s.m == nil || s.Length() == 0 {
 		return &iterator.DummyIterator[T]{}
 	}
+	var closeOnce sync.Once
 	pipe := make(chan T, s.Length())
 	go func() {
-		defer func() {
-			// keep silence
-			_ = recover()
-		}()
 		for k := range s.m {
 			pipe <- k
 		}
-		close(pipe)
+		closeOnce.Do(func() { close(pipe) })
 	}()
 	itr := &setIterator[T]{
-		tgt:  s,
-		pipe: pipe,
+		tgt:       s,
+		pipe:      pipe,
+		closeOnce: &closeOnce,
 	}
 	itr.next, itr.hasNext = <-pipe
 	return itr
 }
 
 type setIterator[T comparable] struct {
-	tgt     *Set[T]
-	pipe    chan T
-	cur     T
-	next    T
-	hasNext bool
+	tgt       *Set[T]
+	pipe      chan T
+	cur       T
+	next      T
+	hasNext   bool
+	closeOnce *sync.Once
 }
 
 func (s *setIterator[T]) HasNext() bool {
@@ -84,5 +85,5 @@ func (s *setIterator[T]) ForEach(consumer fn.Consumer[T]) {
 }
 
 func (s *setIterator[T]) Close() {
-	close(s.pipe)
+	s.closeOnce.Do(func() { close(s.pipe) })
 }
